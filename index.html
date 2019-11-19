@@ -1,0 +1,191 @@
+ <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+   integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+   crossorigin=""/>
+  <!-- Make sure you put this AFTER Leaflet's CSS -->
+ <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+   integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+   crossorigin=""></script>
+
+ <script>
+  var red_line = {
+      "NORTH SPRINGS STATION": [962, 589],
+      "SANDY SPRINGS STATION": [903, 609],
+      "DUNWOODY STATION": [853,634],
+      "MEDICAL CENTER STATION": [798,616],
+      "BUCKHEAD STATION": [691,589],
+      "LINDBERGH CENTER STATION": [612,555],
+      "CIVIC CENTER STATION": [445,515],
+      "PEACHTREE CENTER STATION": [403,508],
+      "FIVE POINTS STATION": [352, 523],
+      "GARNETT STATION": [316, 490],
+      "WEST END STATION": [261, 453],
+      "OAKLAND CITY STATION": [226, 453],
+      "LAKEWOOD STATION": [194, 453],
+      "EAST POINT STATION": [160, 453],
+      "COLLEGE PARK STATION": [110, 453],
+      "AIRPORT STATION": [30, 504],
+  };
+
+  var red_line_north_ns = {
+      "NORTH SPRINGS STATION": "NORTH SPRINGS STATION",
+      "SANDY SPRINGS STATION": "NORTH SPRINGS STATION",
+      "DUNWOODY STATION": "SANDY SPRINGS STATION",
+      "MEDICAL CENTER STATION": "DUNWOODY STATION",
+      "BUCKHEAD STATION": "MEDICAL CENTER STATION",
+      "LINDBERGH CENTER STATION": "BUCKHEAD STATION",
+      "CIVIC CENTER STATION": "LINDBERGH CENTER STATION",
+      "PEACHTREE CENTER STATION": "CIVIC CENTER STATION",
+      "FIVE POINTS STATION": "PEACHTREE CENTER STATION",
+      "GARNETT STATION": "FIVE POINTS STATION",
+      "WEST END STATION": "GARNETT STATION",
+      "OAKLAND CITY STATION": "WEST END STATION",
+      "LAKEWOOD STATION": "OAKLAND CITY STATION",
+      "EAST POINT STATION": "LAKEWOOD STATION",
+      "COLLEGE PARK STATION": "EAST POINT STATION",
+      "AIRPORT STATION": "COLLEGE PARK STATION",
+  };
+
+  var red_line_south_ns = {
+      "NORTH SPRINGS STATION": "SANDY SPRINGS STATION",
+      "SANDY SPRINGS STATION": "DUNWOODY STATION",
+      "DUNWOODY STATION": "MEDICAL CENTER STATION",
+      "MEDICAL CENTER STATION": "BUCKHEAD STATION",
+      "BUCKHEAD STATION": "LINDBERGH CENTER STATION",
+      "LINDBERGH CENTER STATION": "CIVIC CENTER STATION",
+      "CIVIC CENTER STATION": "PEACHTREE CENTER STATION",
+      "PEACHTREE CENTER STATION": "FIVE POINTS STATION",
+      "FIVE POINTS STATION": "GARNETT STATION",
+      "GARNETT STATION": "WEST END STATION",
+      "WEST END STATION": "OAKLAND CITY STATION",
+      "OAKLAND CITY STATION": "LAKEWOOD STATION",
+      "LAKEWOOD STATION": "EAST POINT STATION",
+      "EAST POINT STATION": "COLLEGE PARK STATION",
+      "COLLEGE PARK STATION": "AIRPORT STATION",
+      "AIRPORT STATION": "AIRPORT STATION",
+  };
+
+  var L = L;
+  var map = null;
+  var layerGroup = null
+  var poll = true;
+  var boardingMap = {};
+
+  function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  window.addEventListener('DOMContentLoaded', (event) => {
+      map = L.map('mapid', {
+          crs: L.CRS.Simple
+      });
+      var bounds = [[0,0], [1000,1000]];
+      var image = L.imageOverlay('img/martamap.jpg', bounds).addTo(map);
+      map.fitBounds(bounds);
+      map.on('click', function(ev){
+	  var latlng = map.mouseEventToLatLng(ev.originalEvent);
+	  console.log(latlng.lat + ', ' + latlng.lng);
+      });
+      layerGroup = L.layerGroup().addTo(map);
+  });
+
+  async function pollForTrains() {
+      for(;;) {
+          if (poll) {
+              console.log("rendering trains")
+              layerGroup.clearLayers();
+              renderTrains();
+              await sleep(5000 * 4);
+          } else {
+              console.log("polling flag turned off");
+              return;
+          }
+      }
+  }
+
+  function lastBoarding(station, direction) {
+      if (direction === "N") {
+	  if (boardingMap[red_line_south_ns[station] + "N"]) {
+	      return red_line_south_ns[station] + "N"
+	  }
+      } else {
+	  if (boardingMap[red_line_north_ns[station] + "S"]) {
+	      return red_line_north_ns[station] + "S"
+	  }
+      }
+      return null
+  }
+
+  function getInterpolationCoords(station1, station2, timeToStation2) {
+      if (timeToStation2 <= 0) {
+          return station2
+      }
+      s1x = station1[0]
+      s1y = station1[1]
+      s2x = station2[0]
+      s2y = station2[1]
+      sx = (s2x + s1x) / 2
+      sy = (s2y + s1y) / 2
+      return [sx, sy]
+  }
+
+  function countTrainIDs(trains) {
+      let trainID = {};
+      count = trains.reduce((x, y) => trainID[x["TRAIN_ID"]] ? return: trainID[x["TRAIN_ID"]]; y++;);
+      return count;
+  }
+
+  async function renderTrains() {
+      let schedule = await getResponse()
+      console.log(countTrainIDs(schedule), "trains are running");
+      for (idx in schedule) {
+          station = schedule[idx]
+          if (station["STATION"] in red_line) {
+              if (station["DIRECTION"] === "N" || station["DIRECTION"] === "S") {
+                  if (station["WAITING_TIME"] === "Boarding") {
+		    console.log(station["DIRECTION"], "train boarding at", station["STATION"]);
+		    if (lastBoarding(station["STATION"], station["DIRECTION"])) {
+			  console.log("deleting previous station", lastBoarding(station["STATION"], station["DIRECTION"]))
+			  delete boardingMap[lastBoarding(station["STATION"], station["DIRECTION"])]
+		      }
+		    boardingMap[station["STATION"] + station["DIRECTION"]] = true;
+		    var sol = L.latLng(red_line[station["STATION"]]);
+		    L.marker(sol).addTo(layerGroup).bindPopup(JSON.stringify(station));
+                  } else if (lastBoarding(station["STATION"], station["DIRECTION"])) {
+		      if (station["DIRECTION"] === "N") {
+			console.log("Northbound train heading to ", red_line_north_ns[station["STATION"]]);
+			newCoords = getInterpolationCoords(red_line[station["STATION"]], red_line[red_line_north_ns[station["STATION"]]])
+			var sol = L.latLng(newCoords);
+			L.marker(sol).addTo(layerGroup);
+			L.marker(sol).addTo(layerGroup).bindPopup(JSON.stringify(station));
+		      } else if (station["DIRECTION"] === "S") {
+			console.log("Southbound train heading to ", red_line_south_ns[station["STATION"]]);
+			newCoords = getInterpolationCoords(red_line[station["STATION"]], red_line[red_line_south_ns[station["STATION"]]])
+			var sol = L.latLng(newCoords);
+			L.marker(sol).addTo(layerGroup);
+			L.marker(sol).addTo(layerGroup).bindPopup(JSON.stringify(station));
+		      }
+		  }
+              }
+          }
+      }
+  }
+
+  async function getResponse() {
+      const response = await fetch('/marta');
+      const myJson = await response.json();
+      return myJson
+  }
+ </script>
+
+<style>
+html, body {
+   height: 100%;
+}
+#mapid {
+    height: 100%;
+    background: #000;
+}
+</style>
+<body>
+<div id="mapid"></div>
+</body>

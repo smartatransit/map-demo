@@ -1,0 +1,13 @@
+{
+  "name": "martamap",
+  "version": "1.0.0",
+  "description": "a map of marta data",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "bipol",
+  "license": "ISC"
+}
