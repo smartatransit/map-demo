@@ -5,6 +5,7 @@ const env = require('dotenv').config()
 const martaapi = "http://developer.itsmarta.com/RealtimeTrain/RestServiceNextTrain/GetRealtimeArrivals?apikey=" + process.env.API_KEY
 
 server.use(express.static('public'))
+server.use(express.static('node_modules/leaflet-rotatedmarker'))
 
 server.get("/", (req, res) => {
        res.sendFile(__dirname + '/index.html');
