@@ -282,48 +282,43 @@ function renderTrains(schedule) {
     // record boarding trains
     //TODO: Why not just use the IDs instead of having a previous boarding or something?
     for (idx in schedule) {
-        let station = schedule[idx];
-        let station_name = station["STATION"];
-        let direction = station["DIRECTION"];
-        let train_id = station["TRAIN_ID"];
-        let line = station["LINE"];
-        let boardingKey = buildBoardingKey(station_name, direction, train_id);
-        let lastBoardingStation = lastBoarding(station_name, direction, train_id, line);
-        let coords = getStationCoordinates(station_name, line);
-        if (station["WAITING_TIME"] === "Boarding") {
+        let station_data = schedule[idx];
+        let {STATION, DIRECTION, TRAIN_ID, LINE, WAITING_TIME} = station_data;
+        let boardingKey = buildBoardingKey(STATION, DIRECTION, TRAIN_ID);
+        let lastBoardingStation = lastBoarding(STATION, DIRECTION, TRAIN_ID, LINE);
+        let coords = getStationCoordinates(STATION, LINE);
+        if (WAITING_TIME === "Boarding") {
             if (coords != null) {
                 if (lastBoardingStation) {
 		    console.log("deleting last boarding station because we've made it to the next station: ", lastBoardingStation);
                     delete boardingMap[lastBoardingStation];
                 }
-                addMarker(coords, station["DIRECTION"], train_id + station["DIRECTION"] + " boarding at " + station["STATION"]);
+                addMarker(coords, DIRECTION, TRAIN_ID + DIRECTION + " boarding at " + STATION);
 
                 currBoarding[boardingKey] = true;
                 boardingMap[boardingKey] = true;
-                boardingList.push(station);
+                boardingList.push(station_data);
             } else {
-		console.log("no idea where this station is: ", station);
+		console.log("no idea where this station is: ", station_data);
 	    }
         } else {
-	    inTransitTrains.push(schedule[idx]);
+	    inTransitTrains.push(station_data);
 	}
     }
 
     // record in transit trains
     for (idx in inTransitTrains) {
-        let station = inTransitTrains[idx];
-        let station_name = station["STATION"]
-        let direction = station["DIRECTION"]
-        let train_id = station["TRAIN_ID"]
-        let line = station["LINE"]
-        let lastBoardingStation = lastBoarding(station_name, direction, train_id, line)
-    	let lastStationCoords = returnLastStationCoords(direction, station_name, line)
+        let station_data = inTransitTrains[idx];
+        let {STATION, DIRECTION, TRAIN_ID, LINE, WAITING_TIME} = station_data;
+        let boardingKey = buildBoardingKey(STATION, DIRECTION, TRAIN_ID);
+        let lastBoardingStation = lastBoarding(STATION, DIRECTION, TRAIN_ID, LINE);
+    	let lastStationCoords = returnLastStationCoords(DIRECTION, STATION, LINE)
 	// if we have a station that recently was boarding, but is not currently boarding, we're in transit
 	// between the previous station, and this one
         if (lastBoardingStation != null && !(lastBoardingStation in currBoarding)) {
-            newCoords = getInterpolationCoords(lastStationCoords, getStationCoordinates(station_name, line))
-            addMarker(newCoords, direction, train_id + direction + " heading to " + station_name);
-            inTransitList.push(station)
+            newCoords = getInterpolationCoords(lastStationCoords, getStationCoordinates(STATION, LINE))
+            addMarker(newCoords, DIRECTION, TRAIN_ID + DIRECTION + " heading to " + STATION);
+            inTransitList.push(station_data)
         }
     }
 
